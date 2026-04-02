@@ -110,12 +110,12 @@ model UserLocation {
 
 model Bike {
   bike_id            Int       @id @default(autoincrement())
-  qr_code_identifier String    @unique
+  qr_code_identifier String?   @unique
   status             BikeStatus @default(AVAILABLE)
   battery_level      Float
   current_latitude   Float?
   current_longitude  Float? 
-
+  dock_id            Int?  
   maintenance_logs MaintenanceLog[]
   rides            Ride[]
 
@@ -143,7 +143,7 @@ model Dock {
 
   dock_number   Int
   is_occupied   Boolean  @default(false)
-  bike_id       Int?     // optional (you can link later to Bike table)
+  bike_id       Int?     // Nullable FK to Bike when occupied
 
   lock_status   String?  @db.VarChar(20)
   last_used_at  DateTime?
@@ -302,3 +302,5 @@ model PricingRule {
 
   @@map("Pricing_Rules")
 }
+
+// next is bike managment fo for the back end i need to add edit delit aswell assign on station and like if i have like 20 similar bike i have to add it in jest 1 form

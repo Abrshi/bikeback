@@ -7,8 +7,8 @@ import axios from "axios";
 import authRouter from "./routes/auth/auth.route.js";
 // admin routes
 import stationRouter from "./routes/admin/station.route.js";
-
-
+import dockRouter from "./routes/admin/dock.route.js";
+import bikeRouter from"./routes/admin/bike.route.js";
 
 dotenv.config();
 const app = express();
@@ -19,7 +19,7 @@ const PORT = process.env.PORT || 5500;
 app.use(cookieParser());
 app.use(
   cors({
-    origin: ["http://localhost:3000", "https://etbike.netlify.app"],
+    origin: ["http://localhost:3000", "https://etbike.netlify.app" ,"https://vnfvpmgm-3000.uks1.devtunnels.ms"],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
@@ -38,6 +38,8 @@ app.get("/", (req, res) => {
 app.use("/api/v1/auth", authRouter);
 // admin routes
 app.use("/api/v1/admin", stationRouter);
+app.use("/api/v1/admin", dockRouter);
+app.use("/api/v1/admin",bikeRouter)
 // Google Drive image proxy
 app.get("/api/v1/google-image/:id", async (req, res) => {
   const { id } = req.params;
