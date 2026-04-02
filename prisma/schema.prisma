@@ -113,14 +113,48 @@ model Bike {
   qr_code_identifier String    @unique
   status             BikeStatus @default(AVAILABLE)
   battery_level      Float
-  current_latitude   Float
-  current_longitude  Float
+  current_latitude   Float?
+  current_longitude  Float? 
 
   maintenance_logs MaintenanceLog[]
   rides            Ride[]
 
   @@map("Bikes")
 }
+model BikeStation {
+  station_id           Int      @id @default(autoincrement())
+  city                 String?  @db.VarChar(50)
+  subcity              String?  @db.VarChar(50)
+  area_name            String?  @db.VarChar(50)
+  latitude             Decimal? @db.Decimal(9, 6)
+  longitude            Decimal? @db.Decimal(9, 6)
+  address_description  String?
+  contact_phone        String?  @db.VarChar(20)
+
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  docks                Dock[]
+}
+
+model Dock {
+  dock_id       Int      @id @default(autoincrement())
+  station_id    Int
+
+  dock_number   Int
+  is_occupied   Boolean  @default(false)
+  bike_id       Int?     // optional (you can link later to Bike table)
+
+  lock_status   String?  @db.VarChar(20)
+  last_used_at  DateTime?
+
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  
+  station       BikeStation @relation(fields: [station_id], references: [station_id], onDelete: Cascade)
+}
+
 
 model MaintenanceLog {
   log_id            Int      @id @default(autoincrement())
@@ -195,18 +229,18 @@ model PromoCode {
   @@map("Promo_Codes")
 }
 
-model Station {
-  station_id      Int     @id @default(autoincrement())
-  station_name    String
-  latitude        Float
-  longitude       Float
-  total_slots     Int
-  available_slots Int
-  station_status  String
-  zone_area       String
+// model Station {
+//   station_id      Int     @id @default(autoincrement())
+//   station_name    String
+//   latitude        Float
+//   longitude       Float
+//   total_slots     Int
+//   available_slots Int
+//   station_status  String
+//   zone_area       String
 
-  @@map("Stations")
-}
+//   @@map("Stations")
+// }
 
 model SupportTicket {
   ticket_id      Int      @id @default(autoincrement())

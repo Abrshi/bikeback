@@ -96,6 +96,7 @@ export const signIn = async (req, res) => {
   const { phone_number, password } = req.body;
 
   try {
+   
     // 1. Find user
     const user = await prisma.user.findUnique({
       where: { phone_number },
@@ -107,15 +108,14 @@ export const signIn = async (req, res) => {
 
     // 2. Check password
     const isMatch = await bcrypt.compare(password, user.password_hash);
-
-    if (!isMatch) {
+   if (!isMatch) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
     // 3. Delete old sessions
     try {
       await prisma.session.deleteMany({
-        where: { userId: user.user_id }, // ✅ FIXED
+        where: { user_id: user.user_id }, // ✅ FIXED
       });
     } catch (err) {
       console.error("Error deleting old sessions:", err);
@@ -137,8 +137,11 @@ export const signIn = async (req, res) => {
 
     // 6. Generate access token
     const accessToken = generateAccessToken(user);
-
-    // 7. Send response
+    // 7. get role info
+    const role = await prisma.role.findUnique({
+      where: { role_id: user.role_id },
+    });
+    // 8. Send response
     res
       .cookie("accessToken", accessToken, accessCookieOptions)
       .cookie("refreshToken", refreshToken, refreshCookieOptions)
@@ -149,7 +152,7 @@ export const signIn = async (req, res) => {
           first_name: user.first_name,
           father_name: user.father_name,
           email: user.email,
-          role: user.role,
+          role: role.role,
         },
       });
   } catch (err) {
