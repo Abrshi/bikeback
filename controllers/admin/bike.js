@@ -18,17 +18,24 @@ export const createBike = async (req, res) => {
       return res.status(400).json({ error: "Dock already occupied" });
     }
 
-    // 2. Create bike FIRST (without QR)
+    // 2. Create bike FIRST (IMPORTANT: use relation instead of dock_id)
     const bike = await prisma.bike.create({
       data: {
         battery_level: Number(battery_level),
-        dock_id: Number(dock_id),
-        qr_code_identifier:"test",
+
+        // ✅ OPTION 1 FIX (relation connect)
+        dock: {
+          connect: {
+            dock_id: Number(dock_id), // or id depending on schema
+          },
+        },
+
+        qr_code_identifier: "TEMP",
       },
     });
 
-    // 3. Generate QR (id + random)
-    const random = Math.floor(1000 + Math.random() * 9000); // 4-digit
+    // 3. Generate QR
+    const random = Math.floor(1000 + Math.random() * 9000);
     const qr_code_identifier = `BIKE-${bike.bike_id}-${random}`;
 
     // 4. Update bike with QR
@@ -42,22 +49,24 @@ export const createBike = async (req, res) => {
       where: { dock_id: Number(dock_id) },
       data: {
         is_occupied: true,
-        bike_id: bike.bike_id,
+        bike: {
+          connect: {
+            bike_id: bike.bike_id,
+          },
+        },
         lock_status: "LOCKED",
       },
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Bike created and dock locked",
       bike: updatedBike,
     });
-
   } catch (err) {
     console.error("Create Bike Error:", err);
-    res.status(500).json({ error: "Failed to create bike" });
+    return res.status(500).json({ error: "Failed to create bike" });
   }
 };
-
 
 export const getBikes = async (req, res) => {
   try {
@@ -73,7 +82,6 @@ export const getBikes = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch bikes" });
   }
 };
-
 
 export const deleteBike = async (req, res) => {
   const { id } = req.params;
