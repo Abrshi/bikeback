@@ -78,18 +78,36 @@ export const getBikeById = async (req, res) => {
 
 
 export const unlockBike = async (req, res) => {
-  const { qr_code } = req.body;
+  const { dock_code , user , bike_id} = req.body;
 
   try {
     // 🔍 1. Find bike by QR
-    const bike = await prisma.bike.findUnique({
-      where: {
-        qr_code_identifier: qr_code,
-      },
+    console.log(dock_code ,user , bike_id);
+     const bike = await prisma.bike.findUnique({
+  where: {
+    qr_code_identifier: dock_code,
+  },
+  include: {
+    dock: {
       include: {
-        dock: true,
+        station: true,
       },
-    });
+    },
+  },
+});
+
+if (!bike || !bike.dock || !bike.dock.station) {
+  return res.status(404).json({
+    error: "Bike, dock, or station not found",
+  });
+}
+const start_lat = bike.dock.station.latitude;
+const start_lng = bike.dock.station.longitude;
+
+// console.log("Found bike:", bike.bike_id);
+// console.log("Dock:", bike.dock);
+// console.log("lal:", bike.dock.station.latitude);
+// console.log("long:", bike.dock.station.longitude);
 
     if (!bike) {
       return res.status(404).json({
@@ -140,6 +158,9 @@ export const unlockBike = async (req, res) => {
           bike_id: bike.bike_id,
           start_time: new Date(),
           status: "ONGOING",
+          start_lat: start_lat,
+          start_lng: start_lng,
+          user_id: user,
         },
       });
 

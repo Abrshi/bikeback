@@ -76,7 +76,16 @@ export const getBikes = async (req, res) => {
       },
     });
 
-    res.json(bikes);
+    const result = bikes.map((bike) => ({
+      ...bike,
+
+      // ✅ ADD THIS (QR IMAGE GENERATION)
+      qr_image: `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(
+        bike.qr_code_identifier
+      )}&size=150x150`,
+    }));
+
+    res.json(result);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch bikes" });
