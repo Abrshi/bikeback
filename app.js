@@ -9,6 +9,9 @@ import authRouter from "./routes/auth/auth.route.js";
 import stationRouter from "./routes/admin/station.route.js";
 import dockRouter from "./routes/admin/dock.route.js";
 import bikeRouter from"./routes/admin/bike.route.js";
+// user routes
+import userStationRouter from"./routes/user/station.route.js";
+import bike from"./routes/user/bike.route.js";
 
 dotenv.config();
 const app = express();
@@ -34,7 +37,10 @@ app.use(express.json());
 app.get("/", (req, res) => {
   res.send({ message: "Bike API is running..." });
 });
-
+// user routes
+app.use("/api/v1", userStationRouter);
+app.use("/api/v1", bike);
+// comen 
 app.use("/api/v1/auth", authRouter);
 // admin routes
 app.use("/api/v1/admin", stationRouter);

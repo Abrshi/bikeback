@@ -5,6 +5,7 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
 enum AccountStatus {
   ACTIVE
   SUSPENDED
@@ -51,15 +52,15 @@ enum VerificationStatus {
 }
 
 model User {
-  user_id        Int      @id @default(autoincrement())
-  first_name      String
+  user_id          Int           @id @default(autoincrement())
+  first_name       String
   father_name      String
-  grandfather_name      String?
-  email          String?   @unique
-  password_hash  String
-  phone_number   String    @unique
-  account_status AccountStatus @default(ACTIVE)
-  created_at     DateTime @default(now())
+  grandfather_name String?
+  email            String?       @unique
+  password_hash    String
+  phone_number     String        @unique
+  account_status   AccountStatus @default(ACTIVE)
+  created_at       DateTime      @default(now())
 
   role_id Int
   role    Role @relation(fields: [role_id], references: [role_id])
@@ -70,18 +71,19 @@ model User {
   tickets       SupportTicket[]
   feedbacks     RatingFeedback[]
   verifications FidaIDVerification[]
-   sessions      Session[]
+  sessions      Session[]
 
   @@map("Users")
 }
-model Session {
-  session_id    Int      @id @default(autoincrement())
-  user_id         Int
-  refreshToken  String
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
 
-  user          User     @relation(fields: [user_id], references: [user_id])
+model Session {
+  session_id   Int      @id @default(autoincrement())
+  user_id      Int
+  refreshToken String
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [user_id])
 
   @@map("Sessions")
 }
@@ -109,58 +111,63 @@ model UserLocation {
 }
 
 model Bike {
-  bike_id            Int       @id @default(autoincrement())
-  qr_code_identifier String?   @unique
+  bike_id            Int        @id @default(autoincrement())
+  qr_code_identifier String?    @unique
   status             BikeStatus @default(AVAILABLE)
   battery_level      Float
   current_latitude   Float?
-  current_longitude  Float? 
-  dock_id            Int?  
+  current_longitude  Float?
+
+  // ✅ reverse relation (no FK here)
+  dock Dock?
+
   maintenance_logs MaintenanceLog[]
   rides            Ride[]
 
   @@map("Bikes")
 }
+
 model BikeStation {
-  station_id           Int      @id @default(autoincrement())
-  city                 String?  @db.VarChar(50)
-  subcity              String?  @db.VarChar(50)
-  area_name            String?  @db.VarChar(50)
-  latitude             Decimal? @db.Decimal(9, 6)
-  longitude            Decimal? @db.Decimal(9, 6)
-  address_description  String?
-  contact_phone        String?  @db.VarChar(20)
+  station_id          Int      @id @default(autoincrement())
+  city                String?  @db.VarChar(50)
+  subcity             String?  @db.VarChar(50)
+  area_name           String?  @db.VarChar(50)
+  latitude            Decimal? @db.Decimal(9, 6)
+  longitude           Decimal? @db.Decimal(9, 6)
+  address_description String?
+  contact_phone       String?  @db.VarChar(20)
 
-  created_at           DateTime @default(now())
-  updated_at           DateTime @updatedAt
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
-  docks                Dock[]
+  docks Dock[]
 }
 
 model Dock {
-  dock_id       Int      @id @default(autoincrement())
-  station_id    Int
+  dock_id    Int @id @default(autoincrement())
+  station_id Int
 
-  dock_number   Int
-  is_occupied   Boolean  @default(false)
-  bike_id       Int?     // Nullable FK to Bike when occupied
+  dock_number Int
+  is_occupied Boolean @default(false)
+  bike_id     Int?    @unique // 🔥 ensures one bike per dock
 
-  lock_status   String?  @db.VarChar(20)
-  last_used_at  DateTime?
+  // ✅ relation owner
+  bike Bike? @relation(fields: [bike_id], references: [bike_id])
 
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+  lock_status  String?   @db.VarChar(20)
+  last_used_at DateTime?
 
-  
-  station       BikeStation @relation(fields: [station_id], references: [station_id], onDelete: Cascade)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  station BikeStation @relation(fields: [station_id], references: [station_id], onDelete: Cascade)
 }
 
-
 model MaintenanceLog {
-  log_id            Int      @id @default(autoincrement())
+  log_id            Int       @id @default(autoincrement())
   bike_id           Int
   issue_description String
-  start_date        DateTime @default(now())
+  start_date        DateTime  @default(now())
   end_date          DateTime?
   technician_notes  String?
 
@@ -170,9 +177,9 @@ model MaintenanceLog {
 }
 
 model Ride {
-  ride_id        Int      @id @default(autoincrement())
+  ride_id        Int        @id @default(autoincrement())
   promo_code_id  Int?
-  start_time     DateTime @default(now())
+  start_time     DateTime   @default(now())
   end_time       DateTime?
   start_lat      Float
   start_lng      Float
@@ -184,8 +191,8 @@ model Ride {
   user_id Int
   bike_id Int
 
-  user  User @relation(fields: [user_id], references: [user_id])
-  bike  Bike @relation(fields: [bike_id], references: [bike_id])
+  user  User       @relation(fields: [user_id], references: [user_id])
+  bike  Bike       @relation(fields: [bike_id], references: [bike_id])
   promo PromoCode? @relation(fields: [promo_code_id], references: [promo_id])
 
   payment  Payment?
@@ -196,31 +203,31 @@ model Ride {
 }
 
 model Payment {
-  payment_id         Int      @id @default(autoincrement())
+  payment_id         Int           @id @default(autoincrement())
   base_cost          Float
-  discount_amount    Float?   @default(0)
+  discount_amount    Float?        @default(0)
   final_amount       Float
   payment_method     String
   transaction_status PaymentStatus @default(PENDING)
-  processed_at       DateTime @default(now())
+  processed_at       DateTime      @default(now())
 
-  user_id Int
-  ride_id Int @unique   // 🔥 ONE payment per ride
+  user_id  Int
+  ride_id  Int  @unique // 🔥 ONE payment per ride
   promo_id Int?
 
-  user  User @relation(fields: [user_id], references: [user_id])
-  ride  Ride @relation(fields: [ride_id], references: [ride_id])
+  user  User       @relation(fields: [user_id], references: [user_id])
+  ride  Ride       @relation(fields: [ride_id], references: [ride_id])
   promo PromoCode? @relation(fields: [promo_id], references: [promo_id])
 
   @@map("Payments")
 }
 
 model PromoCode {
-  promo_id      Int      @id @default(autoincrement())
-  code          String   @unique
+  promo_id      Int          @id @default(autoincrement())
+  code          String       @unique
   discount_type DiscountType
   value         Float
-  is_active     Boolean  @default(true)
+  is_active     Boolean      @default(true)
   expiry_date   DateTime
 
   rides    Ride[]
@@ -243,23 +250,23 @@ model PromoCode {
 // }
 
 model SupportTicket {
-  ticket_id      Int      @id @default(autoincrement())
+  ticket_id      Int           @id @default(autoincrement())
   user_id        Int
   ride_id        Int?
   issue_category IssueCategory
   description    String
   admin_response String?
-  status         TicketStatus @default(OPEN)
+  status         TicketStatus  @default(OPEN)
 
-  user User @relation(fields: [user_id], references: [user_id])
+  user User  @relation(fields: [user_id], references: [user_id])
   ride Ride? @relation(fields: [ride_id], references: [ride_id])
 
   @@map("Support_Tickets")
 }
 
 model RatingFeedback {
-  feedback_id Int    @id @default(autoincrement())
-  ride_id     Int @unique   // 🔥 one feedback per ride
+  feedback_id Int     @id @default(autoincrement())
+  ride_id     Int     @unique // 🔥 one feedback per ride
   rating      Int
   comment     String?
   user_id     Int
@@ -271,7 +278,7 @@ model RatingFeedback {
 }
 
 model FidaIDVerification {
-  verification_id         Int      @id @default(autoincrement())
+  verification_id         Int                @id @default(autoincrement())
   user_id                 Int
   id_type                 String
   id_number_hash          String
