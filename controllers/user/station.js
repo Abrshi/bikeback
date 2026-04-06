@@ -90,3 +90,27 @@ export const nearbyStations = async (req, res) => {
     return res.status(500).json({ error: "Failed to fetch stations" });
   }
 };
+
+
+export const getStats = async (req, res) => {
+  try {
+    const totalBikes = await prisma.bike.count();
+
+    const availableBikes = await prisma.bike.count({
+      where: {
+        status: "AVAILABLE",
+      },
+    });
+
+    const totalStations = await prisma.bikeStation.count();
+console.log("Stats fetched:", { totalBikes, availableBikes, totalStations });
+    res.json({
+      totalBikes,
+      availableBikes,
+      totalStations,
+    });
+  } catch (error) {
+    console.error("Stats error:", error);
+    res.status(500).json({ message: "Failed to get stats" });
+  }
+};
