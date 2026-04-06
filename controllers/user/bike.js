@@ -189,6 +189,19 @@ const start_lng = bike.dock.station.longitude;
   }
 };
 
+
+const calculatePayment = (startTime, endTime, pricePerMinute = 1) => {
+  const start = new Date(startTime);
+  const end = new Date(endTime);
+
+  const diffMs = end - start;
+
+  if (diffMs <= 0) return 0;
+
+  const minutes = Math.max(1, Math.ceil(diffMs / (1000 * 60)));
+
+  return minutes * pricePerMinute;
+};
 export const lockbike = async (req, res) => {
   const { dock_code, user, bike_id } = req.body;
 
@@ -271,6 +284,20 @@ export const lockbike = async (req, res) => {
 
       return { updatedBike, updatedDock, ride };
     });
+
+    // const baseCost = calculatePayment(ride.start_time, ride.end_time);
+
+// const payment = await prisma.payment.create({
+//   data: {
+//     base_cost: baseCost,
+//     discount_amount: 0,
+//     final_amount: baseCost,
+//     payment_method: "CASH",
+//     user_id,
+//     ride_id,
+//   },
+// });
+    
 
     return res.status(200).json({
       message: "Bike locked successfully",
