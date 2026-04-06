@@ -35,6 +35,14 @@ export const createDock = async (req, res) => {
 
 export const createMultipleDocks = async (req, res) => {
   const { station_id, count } = req.body;
+ console.log("Creating multiple docks:", { station_id, count });
+
+   if (!station_id || !count || isNaN(Number(count)) || Number(count) <= 0) {
+    console.error("Invalid input for bulk dock creation:", { station_id, count });
+    return res.status(400).json({
+      error: "Invalid input",
+    });
+  }
 
   try {
     const existing = await prisma.dock.findMany({
@@ -95,7 +103,7 @@ export const createMultipleDocks = async (req, res) => {
 
 export const getDocksByStation = async (req, res) => {
   const { station_id } = req.params;
-
+  console.log("Fetching docks for station:", station_id);
   // ❗ Validate input
   if (!station_id || isNaN(Number(station_id))) {
     return res.status(400).json({
@@ -124,9 +132,10 @@ export const getDocksByStation = async (req, res) => {
         dock.qr_code_identifier
       )}&size=100x100`,
     }));
-
+    console.log("Fetched docks:", result);
     res.json(result);
   } catch (err) {
+    console.log("Error fetching docks:", err);
     console.error("Get Docks Error:", err);
 
     res.status(500).json({
