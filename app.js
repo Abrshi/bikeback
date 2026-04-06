@@ -9,9 +9,11 @@ import authRouter from "./routes/auth/auth.route.js";
 import stationRouter from "./routes/admin/station.route.js";
 import dockRouter from "./routes/admin/dock.route.js";
 import bikeRouter from"./routes/admin/bike.route.js";
+import pricingRouter from"./routes/admin/pricing.route.js";
 // user routes
 import userStationRouter from"./routes/user/station.route.js";
 import bike from"./routes/user/bike.route.js";
+import ride from"./routes/user/ride.route.js";
 
 dotenv.config();
 const app = express();
@@ -40,12 +42,14 @@ app.get("/", (req, res) => {
 // user routes
 app.use("/api/v1", userStationRouter);
 app.use("/api/v1", bike);
+app.use("/api/v1", ride);
 // comen 
 app.use("/api/v1/auth", authRouter);
 // admin routes
 app.use("/api/v1/admin", stationRouter);
 app.use("/api/v1/admin", dockRouter);
 app.use("/api/v1/admin",bikeRouter)
+app.use("/api/v1/admin",pricingRouter)
 // Google Drive image proxy
 app.get("/api/v1/google-image/:id", async (req, res) => {
   const { id } = req.params;

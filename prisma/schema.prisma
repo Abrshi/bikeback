@@ -145,6 +145,7 @@ model BikeStation {
 
 model Dock {
   dock_id    Int @id @default(autoincrement())
+  qr_code_identifier String?    @unique
   station_id Int
 
   dock_number Int

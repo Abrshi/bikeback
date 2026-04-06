@@ -83,6 +83,19 @@ export const unlockBike = async (req, res) => {
   try {
     // 🔍 1. Find bike by QR
     console.log(dock_code ,user , bike_id);
+    const isAlredyInRide = await prisma.ride.findFirst({
+      where: {
+        user_id: user,
+        status: "ONGOING",
+      },
+    });
+    if (isAlredyInRide) {
+      return res.status(400).json({
+        message: "Finish current ride first",
+      });
+    }
+
+
      const bike = await prisma.bike.findUnique({
   where: {
     qr_code_identifier: dock_code,
@@ -103,11 +116,6 @@ if (!bike || !bike.dock || !bike.dock.station) {
 }
 const start_lat = bike.dock.station.latitude;
 const start_lng = bike.dock.station.longitude;
-
-// console.log("Found bike:", bike.bike_id);
-// console.log("Dock:", bike.dock);
-// console.log("lal:", bike.dock.station.latitude);
-// console.log("long:", bike.dock.station.longitude);
 
     if (!bike) {
       return res.status(404).json({
@@ -168,11 +176,110 @@ const start_lng = bike.dock.station.longitude;
     });
 
     return res.status(200).json({
-      message: "Bike unlocked successfully 🚀",
+      message: "Bike unlocked successfully ",
       ride: result.ride,
     });
   } catch (error) {
-    console.error("Unlock error:", error);
+    console.log("Unlock error:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+     
+      
+    });
+  }
+};
+
+export const lockbike = async (req, res) => {
+  const { dock_code, user, bike_id } = req.body;
+
+  console.log("Locking bike with:", { dock_code, user, bike_id });
+
+  if (!dock_code || !user || !bike_id) {
+    return res.status(400).json({
+      message: "Missing required fields",
+    });
+  }
+
+  try {
+    // 1️⃣ Find bike
+    const bike = await prisma.bike.findUnique({
+      where: {
+        bike_id: Number(bike_id),
+      },
+    });
+
+    // 2️⃣ Find dock
+    const dock = await prisma.dock.findUnique({
+      where: {
+        qr_code_identifier: dock_code,
+      },
+      include: {
+        station: true,
+      },
+    });
+
+    if (!bike) {
+      return res.status(404).json({
+        message: "Bike not found",
+      });
+    }
+
+    if (!dock) {
+      return res.status(404).json({
+        message: "Dock not found",
+      });
+    }
+
+    // ❗ Optional safety checks (VERY IMPORTANT)
+    if (dock.is_occupied) {
+      return res.status(400).json({
+        message: "Dock already occupied",
+      });
+    }
+
+    // 🚀 TRANSACTION
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedBike = await tx.bike.update({
+        where: { bike_id: bike.bike_id },
+        data: {
+          status: "AVAILABLE",
+        },
+      });
+
+      const updatedDock = await tx.dock.update({
+        where: { dock_id: dock.dock_id },
+        data: {
+          bike_id: bike.bike_id,
+          is_occupied: true,
+          lock_status: "LOCKED",
+        },
+      });
+
+      const ride = await tx.ride.updateMany({
+        where: {
+          bike_id: bike.bike_id,
+          user_id: Number(user),
+          status: "ONGOING",
+        },
+        data: {
+          end_time: new Date(),
+          status: "COMPLETED",
+          end_lat: dock.station?.latitude || null,
+          end_lng: dock.station?.longitude || null,
+        },
+      });
+
+      return { updatedBike, updatedDock, ride };
+    });
+
+    return res.status(200).json({
+      message: "Bike locked successfully",
+      data: result,
+    });
+
+  } catch (error) {
+    console.error("Lock error:", error);
+
     return res.status(500).json({
       message: "Internal server error",
     });

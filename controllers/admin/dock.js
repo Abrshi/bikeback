@@ -4,6 +4,7 @@ export const createDock = async (req, res) => {
   const { station_id, dock_number } = req.body;
 
   try {
+    // 🧱 Step 1: Create dock first
     const dock = await prisma.dock.create({
       data: {
         station_id: Number(station_id),
@@ -11,7 +12,21 @@ export const createDock = async (req, res) => {
       },
     });
 
-    res.status(201).json(dock);
+    // 🎲 Step 2: Generate random 4-digit number
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+
+    // 🏷️ Step 3: Create QR code string
+    const qrCode = `dock-${dock.dock_id}-${randomNum}`;
+
+    // 💾 Step 4: Update dock with QR
+    const updatedDock = await prisma.dock.update({
+      where: { dock_id: dock.dock_id },
+      data: {
+        qr_code_identifier: qrCode,
+      },
+    });
+
+    res.status(201).json(updatedDock);
   } catch (err) {
     console.error("Create Dock Error:", err);
     res.status(500).json({ error: "Failed to create dock" });
@@ -30,20 +45,47 @@ export const createMultipleDocks = async (req, res) => {
 
     let start = existing.length > 0 ? existing[0].dock_number + 1 : 1;
 
-    const docks = [];
+    const createdDocks = [];
 
     for (let i = 0; i < count; i++) {
-      docks.push({
-        station_id: Number(station_id),
-        dock_number: start + i,
+      // 🧱 Step 1: Create dock
+      const dock = await prisma.dock.create({
+        data: {
+          station_id: Number(station_id),
+          dock_number: start + i,
+        },
+      });
+
+      // 🎲 Step 2: Generate QR
+      let qrCode;
+      let isUnique = false;
+
+      while (!isUnique) {
+        const randomNum = Math.floor(1000 + Math.random() * 9000);
+        qrCode = `dock-${dock.dock_id}-${randomNum}`;
+
+        try {
+          await prisma.dock.update({
+            where: { dock_id: dock.dock_id },
+            data: { qr_code_identifier: qrCode },
+          });
+          isUnique = true;
+        } catch (err) {
+          if (err.code !== "P2002") throw err; // retry if duplicate
+        }
+      }
+      console.log(`Created dock ${dock.dock_id} with QR: ${qrCode}`);
+
+      createdDocks.push({
+        ...dock,
+        qr_code_identifier: qrCode,
       });
     }
 
-    await prisma.dock.createMany({
-      data: docks,
+    res.json({
+      message: `${count} docks created with QR codes`,
+      docks: createdDocks,
     });
-
-    res.json({ message: `${count} docks created` });
   } catch (err) {
     console.error("Bulk Create Error:", err);
     res.status(500).json({ error: "Bulk creation failed" });
@@ -54,16 +96,42 @@ export const createMultipleDocks = async (req, res) => {
 export const getDocksByStation = async (req, res) => {
   const { station_id } = req.params;
 
+  // ❗ Validate input
+  if (!station_id || isNaN(Number(station_id))) {
+    return res.status(400).json({
+      error: "Invalid station_id",
+    });
+  }
+
   try {
     const docks = await prisma.dock.findMany({
       where: { station_id: Number(station_id) },
       orderBy: { dock_number: "asc" },
+
+      // ⚡ optional: only fetch what you need
+      select: {
+        dock_id: true,
+        dock_number: true,
+        is_occupied: true,
+        lock_status: true,
+        qr_code_identifier: true,
+      },
     });
 
-    res.json(docks);
+    const result = docks.map((dock) => ({
+      ...dock,
+      qr_image: `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(
+        dock.qr_code_identifier
+      )}&size=100x100`,
+    }));
+
+    res.json(result);
   } catch (err) {
     console.error("Get Docks Error:", err);
-    res.status(500).json({ error: "Failed to fetch docks" });
+
+    res.status(500).json({
+      error: "Failed to fetch docks",
+    });
   }
 };
 
