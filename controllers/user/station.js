@@ -1,6 +1,7 @@
 import { prisma } from "../../lib/prisma.js";
 
 // 📍 Haversine formula (distance in KM)
+
 function getDistance(lat1, lon1, lat2, lon2) {
   const R = 6371;
 
@@ -17,6 +18,70 @@ function getDistance(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+export const Stations = async (req, res) => {
+  console.log("Fetching nearby stations with query:", req.query);
+  try {
+    let { lat, lng, radius } = req.query;
+
+    lat = parseFloat(lat);
+    lng = parseFloat(lng);
+    radius = 5000; // default 5km
+
+    if (!lat || !lng) {
+      return res.status(400).json({ error: "lat and lng required" });
+    }
+
+    // 🧠 Fetch stations + bikes count
+    const stations = await prisma.bikeStation.findMany({
+      include: {
+        docks: {
+          include: {
+            bike: true,
+          },
+        },
+      },
+    });
+
+    // 🧮 Compute distance + available bikes
+    const processed = stations.map((station) => {
+      const distance = getDistance(
+        lat,
+        lng,
+        station.latitude,
+        station.longitude
+      );
+
+      const available_bikes = station.docks.filter(
+        (dock) => dock.bike && dock.bike.status === "AVAILABLE"
+      ).length;
+
+      return {
+        id: station.station_id,
+        latitude: station.latitude,
+        longitude: station.longitude,
+        area_name: station.area_name,
+        available_bikes,
+        distance,
+      };
+    });
+
+    // 🎯 Filter by radius
+    const filtered = processed.filter(
+      (station) => station.distance <= radius
+    );
+
+    // 🥇 Sort nearest → farthest
+    filtered.sort((a, b) => a.distance - b.distance);
+   console.log("Nearby stations found:", filtered);
+    return res.json(filtered);
+  } catch (err) {
+    console.error("Stations error:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+
+
 export const nearbyStations = async (req, res) => {
   const { lat, lng, radius } = req.query;
 
@@ -28,9 +93,9 @@ export const nearbyStations = async (req, res) => {
   try {
     const userLat = parseFloat(lat);
     const userLng = parseFloat(lng);
-    const maxRadius = radius ? parseFloat(radius) : null; // optional (km)
+    const maxRadius = radius ? parseFloat(radius) : null;
 
-    // 🧠 Fetch stations (only occupied docks with bikes)
+    // 🧠 Fetch stations with occupied docks + bikes
     const stations = await prisma.bikeStation.findMany({
       include: {
         docks: {
@@ -45,12 +110,11 @@ export const nearbyStations = async (req, res) => {
       },
     });
 
-    // 🔄 Process stations
+    // 🔄 Process stations with distance calculation
     const processed = stations.map((station) => {
       const stationLat = Number(station.latitude);
       const stationLng = Number(station.longitude);
 
-      // 📍 Distance calculation
       const distance = getDistance(
         userLat,
         userLng,
@@ -64,32 +128,31 @@ export const nearbyStations = async (req, res) => {
         latitude: stationLat,
         longitude: stationLng,
         distance,
-        available_bikes: station.docks.length, // already filtered
+        available_bikes: station.docks.length,
       };
     });
 
-    // 🎯 Optional radius filtering (e.g. ?radius=2)
+    // 🎯 Optional radius filter
     const filtered = maxRadius
       ? processed.filter((s) => s.distance <= maxRadius)
       : processed;
 
-    // 🧠 Smart sorting
+    // 🧠 Sort: most bikes first, then nearest
     const sorted = filtered.sort((a, b) => {
-      // prioritize stations with more bikes
       if (b.available_bikes !== a.available_bikes) {
         return b.available_bikes - a.available_bikes;
       }
-      // then nearest
       return a.distance - b.distance;
     });
 
-    // 📦 Limit results
-    return res.json(sorted.slice(0, 10));
+    // 📦 RETURN ALL (no slice limit)
+    return res.json(sorted);
   } catch (err) {
     console.error("Nearby Stations Error:", err);
     return res.status(500).json({ error: "Failed to fetch stations" });
   }
 };
+
 
 
 export const getStats = async (req, res) => {
