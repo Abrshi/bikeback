@@ -206,8 +206,9 @@ export const refreshToken = async (req, res) => {
     const newRefreshToken = generateRefreshToken();
     const newHashedToken = hashToken(newRefreshToken);
 
+    // ✅ FIXED HERE
     await prisma.session.update({
-      where: { id: session.id },
+      where: { session_id: session.session_id },
       data: { refreshToken: newHashedToken },
     });
 
@@ -225,7 +226,6 @@ export const refreshToken = async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 };
-
 // ---------------- Logout ----------------
 export const logout = async (req, res) => {
   const token = req.cookies.refreshToken;

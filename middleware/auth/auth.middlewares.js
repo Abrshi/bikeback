@@ -15,21 +15,24 @@ export const authMiddleware = async (req, res, next) => {
       ? req.headers.authorization.split(" ")[1]
       : null);
 
+  // ✅ 1. Try access token
   if (accessToken) {
     try {
       const decoded = jwt.verify(accessToken, process.env.JWT_SECRET);
       req.user = decoded;
       return next();
     } catch (err) {
-      console.log("⚠️ Access token expired or invalid");
+      console.log("⚠️ Access token expired, trying refresh...");
     }
   }
 
+  // ❌ No refresh token
   if (!refreshTokenReceived) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
   try {
+    // ✅ 2. Find session
     const session = await prisma.session.findFirst({
       where: { refreshToken: refreshTokenReceived },
     });
@@ -38,15 +41,21 @@ export const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ error: "Invalid refresh token" });
     }
 
+    // ✅ 3. Get user
     const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      select: { id: true, role: true, fullName: true, email: true },
+      where: { user_id: session.user_id },
+      select: {
+        user_id: true,
+        role: true,
+        email: true,
+      },
     });
 
     if (!user) {
       return res.status(401).json({ error: "User not found" });
     }
 
+    // ✅ 4. Generate new access token
     const newAccessToken = generateAccessToken(user);
 
     res.cookie("accessToken", newAccessToken, {
@@ -54,15 +63,17 @@ export const authMiddleware = async (req, res, next) => {
       secure: process.env.NODE_ENV === "production",
       sameSite: "none",
       path: "/",
-      maxAge:60 * 60 * 1000,
+      maxAge: 60 * 60 * 1000,
     });
 
-    req.user = { id: user.id, role: user.role }; // attach to request
-    // console.log("🔄 New access token issued from refresh token");
+    req.user = {
+      id: user.user_id,
+      role: user.role,
+    };
 
-    next(); // continue to next middleware/route
+    next();
   } catch (err) {
-    console.log("⛔ Invalid refresh token:", err.message);
+    console.log("⛔ Refresh error:", err.message);
     return res.status(401).json({ error: "Invalid refresh token" });
   }
 };

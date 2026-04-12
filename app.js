@@ -14,6 +14,8 @@ import pricingRouter from"./routes/admin/pricing.route.js";
 import userStationRouter from"./routes/user/station.route.js";
 import bike from"./routes/user/bike.route.js";
 import ride from"./routes/user/ride.route.js";
+// miidlewer
+import { authMiddleware } from "./middleware/auth/auth.middlewares.js";
 
 dotenv.config();
 const app = express();
@@ -36,15 +38,20 @@ app.use(express.json());
 
 // ---------- Routes ----------
 
+// comen 
+app.use("/api/v1/auth", authRouter);
+
+
 app.get("/", (req, res) => {
   res.send({ message: "Bike API is running..." });
 });
+
+app.use(authMiddleware); // Apply auth middleware globally (adjust as needed for public routes)
+
 // user routes
 app.use("/api/v1", userStationRouter);
 app.use("/api/v1", bike);
 app.use("/api/v1", ride);
-// comen 
-app.use("/api/v1/auth", authRouter);
 // admin routes
 app.use("/api/v1/admin", stationRouter);
 app.use("/api/v1/admin", dockRouter);
