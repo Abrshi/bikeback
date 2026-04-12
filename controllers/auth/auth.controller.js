@@ -2,14 +2,13 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { prisma } from "../../lib/prisma.js";
-import { log } from "console";
 
 // ---------------- Token Helpers ----------------
 export const generateAccessToken = (user) =>
   jwt.sign(
-    { user_id : user.id, role: user.role },
+    { user_id: user.user_id, role: user.role },
     process.env.JWT_SECRET,
-    { expiresIn: "15m" } // short-lived
+    { expiresIn: "15m" }
   );
 
 const generateRefreshToken = () =>
@@ -26,7 +25,7 @@ const accessCookieOptions = {
   secure: isProd,
   sameSite: isProd ? "none" : "lax",
   path: "/",
-  maxAge: 15 * 60 * 1000, // 15 min
+  maxAge: 15 * 60 * 1000,
 };
 
 const refreshCookieOptions = {
@@ -34,26 +33,37 @@ const refreshCookieOptions = {
   secure: isProd,
   sameSite: isProd ? "none" : "lax",
   path: "/",
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
 // ---------------- SignUp ----------------
 export const signUp = async (req, res) => {
-  const { first_name, father_name, grandfather_name, email, password, phone_number } = req.body;
+  const {
+    first_name,
+    father_name,
+    grandfather_name,
+    email,
+    password,
+    phone_number,
+  } = req.body;
 
   try {
-    // Check if phone number already exists
-    const existing = await prisma.user.findUnique({ where: { phone_number } });
-    if (existing) return res.status(409).json({ error: "Phone number already exists" });
+    const existing = await prisma.user.findUnique({
+      where: { phone_number },
+    });
 
-    // Hash password
+    if (existing)
+      return res.status(409).json({ error: "Phone number already exists" });
+
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // Get default role ("user")
-    const defaultRole = await prisma.role.findUnique({ where: { role: "user" } });
-    if (!defaultRole) return res.status(500).json({ error: "Default role not found" });
+    const defaultRole = await prisma.role.findUnique({
+      where: { role: "user" },
+    });
 
-    // Create user with connected role
+    if (!defaultRole)
+      return res.status(500).json({ error: "Default role not found" });
+
     const user = await prisma.user.create({
       data: {
         first_name,
@@ -62,86 +72,76 @@ export const signUp = async (req, res) => {
         email,
         phone_number,
         password_hash: passwordHash,
-        role: { connect: { role_id: defaultRole.role_id } }, // ✅ Connect role
+        role: {
+          connect: { role_id: defaultRole.role_id },
+        },
       },
-      include: { role: true }, // include role info in response
+      include: { role: true },
     });
 
-   
-
-    // Send response
-    res
-      .status(201)
-      .json({
-        message: "User created",
-        user: {
-          id: user.user_id,
-          first_name: user.first_name,
-          father_name: user.father_name,
-          grandfather_name: user.grandfather_name,
-          email: user.email,
-          phone_number: user.phone_number,
-          role: user.role.role,
-        },
-      });
+    res.status(201).json({
+      message: "User created",
+      user: {
+        id: user.user_id,
+        first_name: user.first_name,
+        father_name: user.father_name,
+        grandfather_name: user.grandfather_name,
+        email: user.email,
+        phone_number: user.phone_number,
+        role: user.role.role,
+      },
+    });
   } catch (err) {
     console.error("❌ SignUp error:", err);
     res.status(500).json({ error: "Server error" });
-    console.log(err);
-    
   }
 };
+
 // ---------------- SignIn ----------------
 export const signIn = async (req, res) => {
   const { phone_number, password } = req.body;
 
   try {
-   
-    // 1. Find user
     const user = await prisma.user.findUnique({
       where: { phone_number },
     });
 
-    if (!user) {
+    if (!user)
       return res.status(401).json({ error: "Invalid credentials" });
-    }
 
-    // 2. Check password
     const isMatch = await bcrypt.compare(password, user.password_hash);
-   if (!isMatch) {
+
+    if (!isMatch)
       return res.status(401).json({ error: "Invalid credentials" });
-    }
 
-    // 3. Delete old sessions
-    try {
-      await prisma.session.deleteMany({
-        where: { user_id: user.user_id }, // ✅ FIXED
-      });
-    } catch (err) {
-      console.error("Error deleting old sessions:", err);
-    }
+    // delete old sessions
+    await prisma.session.deleteMany({
+      where: { user_id: user.user_id },
+    });
 
-    // 4. Generate tokens
     const refreshToken = generateRefreshToken();
     const hashedRefreshToken = hashToken(refreshToken);
 
-    // 5. Create new session
     await prisma.session.create({
       data: {
         refreshToken: hashedRefreshToken,
         user: {
-          connect: { user_id: user.user_id }, // ✅ FIXED
+          connect: { user_id: user.user_id },
         },
       },
     });
 
-    // 6. Generate access token
-    const accessToken = generateAccessToken(user);
-    // 7. get role info
     const role = await prisma.role.findUnique({
       where: { role_id: user.role_id },
     });
-    // 8. Send response
+
+    const accessToken = generateAccessToken({
+      user_id: user.user_id,
+      role: role.role,
+    });
+
+    console.log("Generated Access Token:", accessToken);
+
     res
       .cookie("accessToken", accessToken, accessCookieOptions)
       .cookie("refreshToken", refreshToken, refreshCookieOptions)
@@ -160,20 +160,23 @@ export const signIn = async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 };
+
 // ---------------- Get Current User ----------------
 export const getMe = async (req, res) => {
   try {
     const token = req.cookies.accessToken;
+
     if (!token)
       return res.status(401).json({ error: "No access token" });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const user = await prisma.user.findUnique({
-      where: { id: decoded.user_id  },
+      where: { user_id: decoded.user_id },
     });
 
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user)
+      return res.status(404).json({ error: "User not found" });
 
     res.json({ user });
   } catch (err) {
@@ -185,6 +188,7 @@ export const getMe = async (req, res) => {
 // ---------------- Refresh Token ----------------
 export const refreshToken = async (req, res) => {
   const token = req.cookies.refreshToken;
+
   if (!token)
     return res.status(401).json({ error: "No refresh token" });
 
@@ -199,7 +203,6 @@ export const refreshToken = async (req, res) => {
     if (!session)
       return res.status(403).json({ error: "Invalid refresh token" });
 
-    // rotate refresh token
     const newRefreshToken = generateRefreshToken();
     const newHashedToken = hashToken(newRefreshToken);
 
@@ -208,7 +211,10 @@ export const refreshToken = async (req, res) => {
       data: { refreshToken: newHashedToken },
     });
 
-    const newAccessToken = generateAccessToken(session.user);
+    const newAccessToken = generateAccessToken({
+      user_id: session.user.user_id,
+      role: session.user.role_id,
+    });
 
     res
       .cookie("accessToken", newAccessToken, accessCookieOptions)
