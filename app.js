@@ -16,7 +16,7 @@ import bike from"./routes/user/bike.route.js";
 import ride from"./routes/user/ride.route.js";
 // miidlewer
 import { authMiddleware } from "./middleware/auth/auth.middlewares.js";
-
+import { adminMiddleware } from "./middleware/admin/admin.middleware.js";
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5500;
@@ -52,11 +52,7 @@ app.use(authMiddleware); // Apply auth middleware globally (adjust as needed for
 app.use("/api/v1", userStationRouter);
 app.use("/api/v1", bike);
 app.use("/api/v1", ride);
-// admin routes
-app.use("/api/v1/admin", stationRouter);
-app.use("/api/v1/admin", dockRouter);
-app.use("/api/v1/admin",bikeRouter)
-app.use("/api/v1/admin",pricingRouter)
+
 // Google Drive image proxy
 app.get("/api/v1/google-image/:id", async (req, res) => {
   const { id } = req.params;
@@ -72,11 +68,18 @@ app.get("/api/v1/google-image/:id", async (req, res) => {
     res.status(500).send("Failed to fetch image");
   }
 });
-
+// admin routes
+app.use(adminMiddleware)
+app.use("/api/v1/admin", stationRouter);
+app.use("/api/v1/admin", dockRouter);
+app.use("/api/v1/admin",bikeRouter)
+app.use("/api/v1/admin",pricingRouter)
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
+
+
 
 // Global error handler
 app.use((err, req, res, next) => {
