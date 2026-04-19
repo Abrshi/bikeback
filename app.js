@@ -10,6 +10,7 @@ import stationRouter from "./routes/admin/station.route.js";
 import dockRouter from "./routes/admin/dock.route.js";
 import bikeRouter from"./routes/admin/bike.route.js";
 import pricingRouter from"./routes/admin/pricing.route.js";
+import dashiboredRouter from"./routes/admin/dashibored.route.js"
 // user routes
 import userStationRouter from"./routes/user/station.route.js";
 import bike from"./routes/user/bike.route.js";
@@ -74,6 +75,7 @@ app.use("/api/v1/admin", stationRouter);
 app.use("/api/v1/admin", dockRouter);
 app.use("/api/v1/admin",bikeRouter)
 app.use("/api/v1/admin",pricingRouter)
+app.use("/api/v1/admin",dashiboredRouter)
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });

@@ -188,11 +188,12 @@ export const getMe = async (req, res) => {
 // ---------------- Refresh Token ----------------
 export const refreshToken = async (req, res) => {
   const token = req.cookies.refreshToken;
-
+  
   if (!token)
     return res.status(401).json({ error: "No refresh token" });
 
   try {
+    console.log(token)
     const hashedToken = hashToken(token);
 
     const session = await prisma.session.findFirst({
